@@ -21,8 +21,5 @@
   },
   "dependencies": {
     "uuid": "^3.3.3"
-  },
-  "scripts": {
-    "test": "serverless-bundle test"
   }
 }
