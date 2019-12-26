@@ -1,8 +1,12 @@
 Resources:
+  # DynamoDB best practices suggest most applications should only
+  # have a single table. For resources check out the follow links...
+  # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/best-practices.html
+  # Advanced Design Patterns for DynamoDB - https://www.youtube.com/watch?v=HaEPXoXVf2k
   NotesTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: ${self:custom.tableName}
+      TableName: ${self:custom.notesTableName}
       AttributeDefinitions:
         - AttributeName: userId
           AttributeType: S
@@ -15,5 +19,16 @@ Resources:
           KeyType: RANGE
       # Set the capacity to auto-scale
       BillingMode: PAY_PER_REQUEST
-
-
+      # TODO: add secondary index as per https://github.com/serverless/serverless-websockets-plugin/blob/master/example/serverless.yml
+  ConnectionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ${self:custom.connectionsTableName}
+      AttributeDefinitions:
+        - AttributeName: connectionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: connectionId
+          KeyType: HASH
+      # Set the capacity to auto-scale
+      BillingMode: PAY_PER_REQUEST

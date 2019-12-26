@@ -13,26 +13,33 @@ custom:
   # Our stage is based on what is passed in when running serverless
   # commands. Or fallsback to what we have set in the provider section.
   stage: ${opt:stage, self:provider.stage}
+  region : ${opt:region, self:provider.region}
   # Set the table name here so we can use it while testing locally
-  tableName: sle-notes-${self:custom.stage}
+  notesTableName: sle-notes-${self:custom.stage}
+  connectionsTableName: sle-connections-${self:custom.stage}
 
 provider:
   name: aws
-  region: us-east-1
   runtime: nodejs10.x
-  stage: dev
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'dev'}
   tags:
-    Project: CDCS
+    Project: SLE
     Developer: ${env:USER}
 
   # These environment variables are made available to our functions
   # under process.env.
   environment:
-    tableName: ${self:custom.tableName}
+    notesTableName: ${self:custom.notesTableName}
+    connectionsTableName: ${self:custom.connectionsTableName}
 
   # 'iamRoleStatements' defines the permission policy for the Lambda function.
   # In this case Lambda functions are granted with permissions to access DynamoDB.
   iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - lambda:InvokeFunction
+      Resource: "*"
     - Effect: Allow
       Action:
         - dynamodb:DescribeTable
@@ -42,10 +49,27 @@ provider:
         - dynamodb:PutItem
         - dynamodb:UpdateItem
         - dynamodb:DeleteItem
+        - "dynamodb:BatchGetItem"
+        - "dynamodb:BatchWriteItem"
       # Restrict our IAM role permissions to
       # the specific table for the stage
       Resource:
         - "Fn::GetAtt": [ NotesTable, Arn ]
+        - "Fn::GetAtt": [ ConnectionsTable, Arn ]
+    - Effect: Allow
+      Action:
+        - "execute-api:ManageConnections"
+      Resource:
+        - "arn:aws:execute-api:*:*:**/@connections/*"
+
+  # optional
+  websocketApiName: notes-app-${self:provider.stage}
+
+  # required for websocket apis
+  # this selects from your payload what your "routeKey" parameter is
+  # from the websocket event types on your function
+  websocketApiRouteSelectionExpression: $request.body.action
+
 
 functions:
   # Defines an HTTP API endpoint that calls the main function in create.js
@@ -55,19 +79,21 @@ functions:
   #     domain api call
   # - authorizer: authenticate using the AWS IAM role
   create:
-    handler: create.main
+    handler: src/lambda/create.main
     events:
       - http:
           path: notes
           method: post
           cors: true
           authorizer: aws_iam
+    environment:
+      BROADCAST_FN: ${self:service}-${self:provider.stage}-broadcast
 
   get:
     # Defines an HTTP API endpoint that calls the main function in get.js
     # - path: url path is /notes/{id}
     # - method: GET request
-    handler: get.main
+    handler: src/lambda/get.main
     events:
       - http:
           path: notes/{id}
@@ -79,7 +105,7 @@ functions:
     # Defines an HTTP API endpoint that calls the main function in list.js
     # - path: url path is /notes
     # - method: GET request
-    handler: list.main
+    handler: src/lambda/list.main
     events:
       - http:
           path: notes
@@ -91,26 +117,57 @@ functions:
     # Defines an HTTP API endpoint that calls the main function in update.js
     # - path: url path is /notes/{id}
     # - method: PUT request
-    handler: update.main
+    handler: src/lambda/update.main
     events:
       - http:
           path: notes/{id}
           method: put
           cors: true
           authorizer: aws_iam
+    environment:
+      BROADCAST_FN: ${self:service}-${self:provider.stage}-broadcast
 
   delete:
     # Defines an HTTP API endpoint that calls the main function in delete.js
     # - path: url path is /notes/{id}
     # - method: DELETE request
-    handler: delete.main
+    handler: src/lambda/delete.main
     events:
       - http:
           path: notes/{id}
           method: delete
           cors: true
           authorizer: aws_iam
+    environment:
+      BROADCAST_FN: ${self:service}-${self:provider.stage}-broadcast
 
+  # manage connection and disconnection of clients
+  onConnect:
+    handler: src/lambda/onconnect.main
+    events:
+      - websocket:
+          route: $connect
+
+  # manage connection and disconnection of clients
+  onDisconnect:
+    handler: src/lambda/ondisconnect.main
+    events:
+      - websocket:
+          route: $disconnect
+
+  # just in case we are getting weird / bad data
+  # we can react to it with a sane response
+  defaultMessages:
+     handler: src/lambda/default.main
+     events:
+       - websocket:
+           route: $default
+
+  # async broadcast to all clients after change
+  broadcast:
+    handler: src/lambda/broadcast.main
+    environment:
+      WSS_URL: { "Fn::Join" : ["", [ "https://", { "Ref" : "WebsocketsApi" }, ".execute-api.${self:custom.region}.amazonaws.com/${self:custom.stage}" ] ]  }
 
 # Create our resources with separate CloudFormation templates
 resources:
@@ -123,4 +180,3 @@ resources:
   # Cognito
   - ${file(resources/cognito-user-pool.yml)}
   - ${file(resources/cognito-identity-pool.yml)}
-
