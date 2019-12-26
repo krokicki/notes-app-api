@@ -1,6 +1,6 @@
 Resources:
   # DynamoDB best practices suggest most applications should only
-  # have a single table. For resources check out the follow links...
+  # have a single table. Unfortunately, we need two.
   # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/best-practices.html
   # Advanced Design Patterns for DynamoDB - https://www.youtube.com/watch?v=HaEPXoXVf2k
   NotesTable:
@@ -8,15 +8,11 @@ Resources:
     Properties:
       TableName: ${self:custom.notesTableName}
       AttributeDefinitions:
-        - AttributeName: userId
-          AttributeType: S
         - AttributeName: noteId
           AttributeType: S
       KeySchema:
-        - AttributeName: userId
-          KeyType: HASH
         - AttributeName: noteId
-          KeyType: RANGE
+          KeyType: HASH
       # Set the capacity to auto-scale
       BillingMode: PAY_PER_REQUEST
       # TODO: add secondary index as per https://github.com/serverless/serverless-websockets-plugin/blob/master/example/serverless.yml

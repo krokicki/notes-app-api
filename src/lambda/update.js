@@ -11,7 +11,6 @@ export async function main(event, context) {
     // - 'userId': Identity Pool identity id of the authenticated user
     // - 'noteId': path parameter
     Key: {
-      userId: event.requestContext.identity.cognitoIdentityId,
       noteId: noteId
     },
     // 'UpdateExpression' defines the attributes to be updated
@@ -38,6 +37,7 @@ export async function main(event, context) {
     return success({ status: true });
   }
   catch (e) {
+    console.log("Error", e);
     return failure({ status: false });
   }
 }

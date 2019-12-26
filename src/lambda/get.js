@@ -8,7 +8,6 @@ export async function main(event, context) {
     // - 'userId': Identity Pool identity id of the authenticated user
     // - 'noteId': path parameter
     Key: {
-      userId: event.requestContext.identity.cognitoIdentityId,
       noteId: event.pathParameters.id
     }
   };
@@ -18,10 +17,14 @@ export async function main(event, context) {
     if (result.Item) {
       // Return the retrieved item
       return success(result.Item);
-    } else {
+    }
+    else {
+      console.log("Note not found");
       return failure({ status: false, error: "Item not found." });
     }
-  } catch (e) {
+  }
+  catch (e) {
+    console.log("Error", e);
     return failure({ status: false });
   }
 }

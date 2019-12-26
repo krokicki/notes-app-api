@@ -9,13 +9,16 @@ export async function main(event, context) {
   const params = {
     TableName: process.env.notesTableName,
     Item: {
-      userId: event.requestContext.identity.cognitoIdentityId,
       noteId: noteId,
+      creatorId: event.requestContext.identity.cognitoIdentityId,
       content: data.content,
       attachment: data.attachment,
       createdAt: Date.now()
     }
   };
+
+  console.log("Event: ", event);
+  console.log("Identify: ", event.requestContext.identity);
 
   try {
     await dynamoDbLib.call("put", params);
