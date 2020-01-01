@@ -1,6 +1,8 @@
 # Notes Example
 
-Based on https://serverless-stack.com
+Serverless API for a collaborative note-taking app.
+
+Based on the tutorial at https://serverless-stack.com
 
 Build:
 ```
@@ -25,5 +27,4 @@ Deploy API:
 ```
 serverless deploy -v
 ```
-
 
